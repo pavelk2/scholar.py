@@ -715,7 +715,8 @@ class SearchScholarQuery(ScholarQuery):
         + '&as_sdt=%(patents)s%%2C5' \
         + '&as_vis=%(citations)s' \
         + '&btnG=&hl=en' \
-        + '&num=%(num)s'
+        + '&num=%(num)s' \
+        + '&start=%(start)s'
 
     def __init__(self):
         ScholarQuery.__init__(self)
@@ -727,9 +728,10 @@ class SearchScholarQuery(ScholarQuery):
         self.scope_title = False # If True, search in title only
         self.author = None 
         self.pub = None
+        self.start = 1
         self.timeframe = [None, None]
         self.include_patents = True
-        self.include_citations = True
+        self.include_citations = False
 
     def set_words(self, words):
         """Sets words that *all* must be found in the result."""
@@ -762,6 +764,9 @@ class SearchScholarQuery(ScholarQuery):
         """Sets the publication in which the result must be found."""
         self.pub = pub
 
+    def set_start(self, start):
+        """Sets the start"""
+        self.start = start
     def set_timeframe(self, start=None, end=None):
         """
         Sets timeframe (in years as integer) in which result must have
@@ -806,6 +811,7 @@ class SearchScholarQuery(ScholarQuery):
                    'scope': 'title' if self.scope_title else 'any',
                    'authors': self.author or '',
                    'pub': self.pub or '',
+                   'start': self.start or '',
                    'ylo': self.timeframe[0] or '',
                    'yhi': self.timeframe[1] or '',
                    'patents': '0' if self.include_patents else '1',
@@ -973,7 +979,9 @@ class ScholarQuerier(object):
         self.clear_articles()
         self.query = query
 
-        html = self._get_http_response(url=query.get_url(),
+        url =query.get_url()
+        print url
+        html = self._get_http_response(url=url,
                                        log_msg='dump of query response HTML',
                                        err_msg='results retrieval failed')
         if html is None:
@@ -1086,14 +1094,25 @@ def txt(querier, with_globals):
     articles = querier.articles
     for art in articles:
         print(encode(art.as_txt()) + '\n')
+def csv(querier, header=False, sep='|'):
 
+    f = open(querier.query.pub+'.csv','w')
+    articles = querier.articles
+    
+    for art in articles:
+        result = art.as_csv(header=header, sep=sep)
+        f.write(encode(result)+'\n')
+        print(encode(result))
+        header = False
+    f.close()
+'''
 def csv(querier, header=False, sep='|'):
     articles = querier.articles
     for art in articles:
         result = art.as_csv(header=header, sep=sep)
         print(encode(result))
         header = False
-
+'''
 def citation_export(querier):
     articles = querier.articles
     for art in articles:
@@ -1101,6 +1120,7 @@ def citation_export(querier):
 
 
 def main():
+    print "==================================\n"
     usage = """scholar.py [options] <query string>
 A command-line interface to Google Scholar.
 
@@ -1134,6 +1154,8 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Search title only')
     group.add_option('-P', '--pub', metavar='PUBLICATIONS', default=None,
                      help='Results must have appeared in this publication')
+    group.add_option('--start', metavar='START', default=0,
+                     help='pagination')
     group.add_option('--after', metavar='YEAR', default=None,
                      help='Results must have appeared in or after given year')
     group.add_option('--before', metavar='YEAR', default=None,
@@ -1234,6 +1256,8 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
             query.set_scope(True)
         if options.pub:
             query.set_pub(options.pub)
+        if options.start:
+            query.set_start(options.start)
         if options.after or options.before:
             query.set_timeframe(options.after, options.before)
         if options.no_patents:
@@ -1245,8 +1269,26 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
         options.count = min(options.count, ScholarConf.MAX_PAGE_RESULTS)
         query.set_num_page_results(options.count)
 
-    querier.send_query(query)
+    f = open('Results/'+query.pub+'.csv','w')
+    some_left = True
+    query.start = 0
+    header=True 
+    sep='|'
+    while some_left:
+        some_left = False
+        querier.send_query(query)
+        articles = querier.articles
+        for art in articles:
+            some_left = True
+            result = art.as_csv(header=header, sep=sep)
+            f.write(encode(result)+'\n')
+            print(encode(result))
+            header = False
+        query.start+= 20
+    f.close()
+    
 
+    '''
     if options.csv:
         csv(querier)
     elif options.csv_header:
@@ -1255,7 +1297,7 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
         citation_export(querier)
     else:
         txt(querier, with_globals=options.txt_globals)
-
+    '''
     if options.cookie_file:
         querier.save_cookies()
 
