@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+
 """
 This module provides classes for querying Google Scholar and parsing
 returned results. It currently *only* processes the first results
@@ -153,6 +154,7 @@ import optparse
 import os
 import sys
 import re
+import time
 
 try:
     # Try importing for Python 3
@@ -1285,6 +1287,7 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
             print(encode(result))
             header = False
         query.start+= 20
+        time.sleep(5)
     f.close()
     
 
