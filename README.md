@@ -1,3 +1,6 @@
+```bash
+python scholar.py --pub "Human Computation" --after 2009 --before 2010 --start=0
+```
 scholar.py
 ==========
 
